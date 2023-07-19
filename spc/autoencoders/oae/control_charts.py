@@ -13,6 +13,7 @@ class ProcessMonitoring:
     def __init__(self, alpha=0.05):
         self.alpha = alpha
         self.scaler = StandardScaler()
+        self.mean_vector_original_data = None
         self.columns = None
         self.model = None
         self.trained_model = None
@@ -42,6 +43,7 @@ class ProcessMonitoring:
         """
         # standardizing phase one data
         data = pd.DataFrame(self.scaler.fit_transform(data))
+        self.mean_vector_original_data = np.mean(data, axis=0)
 
         # initializing model
         self.model = AutoEncoder(encoding_layers=encoding_layers, penalty=orthogonality_regularization, norm_type=norm)
@@ -132,7 +134,7 @@ class ProcessMonitoring:
         plt.show()
 
     def t2_contribution_plots(self, ooc_observation, method="monte_carlo", samples=1000, steps=20):
-        gradient_scores = integrated_gradients(model=self.trained_model, inp=ooc_observation, baseline=self.mean_vector,
+        gradient_scores = integrated_gradients(model=self.trained_model, inp=ooc_observation, baseline=self.mean_vector_original_data,
                                                approximation_method=method, steps=steps, samples=samples)
         plt.bar(self.columns, gradient_scores[0], color="c", alpha=0.6)
         plt.axhline(y=0, c="k", lw=0.5)
