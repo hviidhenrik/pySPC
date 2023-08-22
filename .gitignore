@@ -1,5 +1,6 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
+pytest_cache/
 *.py[cod]
 *$py.class
 
@@ -92,3 +93,6 @@ ENV/
 
 # PyCharm project settings
 .idea
+
+# macOS
+.DS_Store

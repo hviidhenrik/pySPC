@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 
-from spc.core import PCAModelChart
+from base import PCAModelChart
 
 plt.style.use("seaborn")
 
