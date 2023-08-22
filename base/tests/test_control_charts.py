@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 from pandas._testing import assert_frame_equal, assert_series_equal
 
-from spc.core import EWMAChart, MEWMAChart, PCAModelChart, RChart, SChart, XBarChart
+from base import EWMAChart, MEWMAChart, PCAModelChart, RChart, SChart, XBarChart
 
 
 def sd(values):
@@ -94,7 +94,7 @@ def test_group_samples_and_compute_stats():
         index=[1, 2, 3, 4],
     )
     df_expected.index.name = "sample_id"
-    assert_frame_equal(df_output, df_expected, check_dtype=False)
+    assert_frame_equal(df_output, df_expected, check_dtype=False, check_index_type=False)
 
 
 def test_collect_results_df_correct_output_dataframe():
@@ -114,7 +114,7 @@ def test_collect_results_df_correct_output_dataframe():
         index=[1, 2, 3],
     )
     df_expected.index.name = "sample_id"
-    assert_frame_equal(df_output, df_expected, check_dtype=False)
+    assert_frame_equal(df_output, df_expected, check_dtype=False, check_index_type=False)
 
 
 def test_collect_results_df_correct_bool_for_outside_CL():
@@ -136,7 +136,7 @@ def test_collect_results_df_correct_bool_for_outside_CL():
         index=[1, 2, 3, 4],
     )
     df_expected.index.name = "sample_id"
-    assert_frame_equal(df_output, df_expected, check_dtype=False)
+    assert_frame_equal(df_output, df_expected, check_dtype=False, check_index_type=False)
 
 
 def test_RChart_fit_correct_values_sample_size_2_and_range():

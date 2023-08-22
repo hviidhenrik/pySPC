@@ -7,8 +7,8 @@ from matplotlib import pyplot as plt
 from scipy.stats import beta, chi2, f
 from statsmodels.distributions.empirical_distribution import ECDF
 
-from spc.constants import get_A_constant, get_B_constant, get_D_constant
-from spc.helpers import (
+from base._src.constants import get_A_constant, get_B_constant, get_D_constant
+from base._src.helpers import (
     ControlChartPlotMixin,
     apply_standardize_and_PCA,
     get_df_with_sample_id,
