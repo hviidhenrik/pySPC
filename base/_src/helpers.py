@@ -15,7 +15,7 @@ from base._src.definitions import (
     multivariate_phase1_color,
     multivariate_phase2_color,
     outlier_marker_color,
-    single_phase_line_color,
+    single_phase_line_color, univariate_phase1_color, univariate_phase2_color,
 )
 
 
@@ -175,12 +175,13 @@ class ControlChartPlotMixin:
             zorder=1,
         )
         ax.scatter(
-            df_outside_CL.index.values,
+            df_outside_CL.index,
             df_outside_CL,
             marker="o",
             color="red",
             s=get_outside_CL_marker_size(N_samples),
             zorder=2,
+            label="_nolegend_",
         )
         legend_labels = [self.stat_name]
         if self.center_line is not None:
@@ -277,13 +278,13 @@ class ControlChartPlotMixin:
             df[self.stat_name][df["phase"] == 1],
             linestyle="-",
             marker="",
-            color=single_phase_line_color,
+            color=univariate_phase1_color,
             linewidth=get_line_width(N_samples),
             zorder=1,
         )
         plt.plot(
             df[self.stat_name][df["phase"] == 2],
-            color=single_phase_line_color,
+            color=univariate_phase2_color,
             linewidth=get_line_width(N_samples),
             linestyle="-",
             marker="",

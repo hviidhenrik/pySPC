@@ -5,7 +5,6 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 from scipy.stats import beta, chi2, f
-from statsmodels.distributions.empirical_distribution import ECDF
 
 from base._src.constants import get_A_constant, get_B_constant, get_D_constant
 from base._src.helpers import (
@@ -66,7 +65,10 @@ class XBarChart(BaseControlChart):
       Montgomery 2013, chapter 6.3, p. 259.
     """
 
-    def __init__(self, n_sample_size: int = 5, variability_estimator: str = "auto"):
+    def __init__(self, n_sample_size: int = 5,
+                 variability_estimator: str = "auto",
+                 standard_deviations: float = 3
+                 ):
         """
         Instantiates the XBarChart object
 
@@ -81,6 +83,7 @@ class XBarChart(BaseControlChart):
             "Variance estimator must be one of " '"auto", "range" or "std"' ""
         )
         self.stat_name = "sample_mean"
+        self.standard_deviations = standard_deviations
         self.variability_Rbar_or_sbar = None
         self.input_name = None
         self.df_phase1_stats = None
@@ -121,10 +124,10 @@ class XBarChart(BaseControlChart):
         )
 
         self.LCL = (
-            self.center_line - variability_constant * self.variability_Rbar_or_sbar
+            self.center_line - self.standard_deviations * variability_constant * self.variability_Rbar_or_sbar
         )
         self.UCL = (
-            self.center_line + variability_constant * self.variability_Rbar_or_sbar
+            self.center_line + self.standard_deviations * variability_constant * self.variability_Rbar_or_sbar
         )
         self.is_fitted = True
         self.df_phase1_results = self.get_phase1_results()
@@ -523,7 +526,7 @@ class HotellingT2Chart(BaseControlChart, ControlChartPlotMixin):
         self.x_bar = np.mean(x, axis=0)
         self.sigma = np.cov(
             x.T, ddof=1
-        )  # n0te: should the S_5 estimator be used instead? Are they equivalent?
+        )
         self.sigma_inverse = np.linalg.inv(self.sigma)
         T2 = []
         for i in range(x.shape[0]):
