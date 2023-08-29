@@ -34,8 +34,6 @@ chart = PCAModelChart(n_sample_size=1).fit(
 
 chart.predict(df_phase2)
 
-chart.get_contributions(df_phase2)
-print(chart.df_contributions)
 chart.plot_phase1_and_2(df_phase2)
 print(chart.predict(df_phase2))
 plt.show()

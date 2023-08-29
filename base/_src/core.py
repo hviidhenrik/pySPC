@@ -5,7 +5,6 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 from scipy.stats import beta, chi2, f
-from statsmodels.distributions.empirical_distribution import ECDF
 
 from base._src.constants import get_A_constant, get_B_constant, get_D_constant
 from base._src.helpers import (
@@ -66,7 +65,10 @@ class XBarChart(BaseControlChart):
       Montgomery 2013, chapter 6.3, p. 259.
     """
 
-    def __init__(self, n_sample_size: int = 5, variability_estimator: str = "auto"):
+    def __init__(self, n_sample_size: int = 5,
+                 variability_estimator: str = "auto",
+                 standard_deviations: float = 3
+                 ):
         """
         Instantiates the XBarChart object
 
@@ -81,6 +83,7 @@ class XBarChart(BaseControlChart):
             "Variance estimator must be one of " '"auto", "range" or "std"' ""
         )
         self.stat_name = "sample_mean"
+        self.standard_deviations = standard_deviations
         self.variability_Rbar_or_sbar = None
         self.input_name = None
         self.df_phase1_stats = None
@@ -121,10 +124,10 @@ class XBarChart(BaseControlChart):
         )
 
         self.LCL = (
-            self.center_line - variability_constant * self.variability_Rbar_or_sbar
+            self.center_line - self.standard_deviations * variability_constant * self.variability_Rbar_or_sbar
         )
         self.UCL = (
-            self.center_line + variability_constant * self.variability_Rbar_or_sbar
+            self.center_line + self.standard_deviations * variability_constant * self.variability_Rbar_or_sbar
         )
         self.is_fitted = True
         self.df_phase1_results = self.get_phase1_results()
@@ -523,7 +526,7 @@ class HotellingT2Chart(BaseControlChart, ControlChartPlotMixin):
         self.x_bar = np.mean(x, axis=0)
         self.sigma = np.cov(
             x.T, ddof=1
-        )  # n0te: should the S_5 estimator be used instead? Are they equivalent?
+        )
         self.sigma_inverse = np.linalg.inv(self.sigma)
         T2 = []
         for i in range(x.shape[0]):
@@ -681,7 +684,7 @@ class PCAModelChart(HotellingT2Chart):
         df_phase1: pd.DataFrame,
         n_components_to_retain: int = None,
         PC_variance_explained_min: float = 0.9,
-        compute_contributions: bool = True,
+        # compute_contributions: bool = True,
         verbose=False,
         *args,
         **kwargs,
@@ -742,15 +745,16 @@ class PCAModelChart(HotellingT2Chart):
         self.df_phase1_stats = pd.concat([self.df_phase1_stats, df_Q_stats], axis=1)
         self.df_phase1_stats.index = df_phase1.index
 
-        if compute_contributions:
-            # n0te: should _compute_contributions be called on df_PCA_transformed instead?
-            Q_contributions, T2_contributions = self._compute_contributions(df_phase1)
-            self.df_T2_contributions = pd.DataFrame(
-                T2_contributions, columns=df_phase1.columns, index=df_phase1.index
-            )
-            self.df_Q_contributions = pd.DataFrame(
-                Q_contributions, columns=df_phase1.columns, index=df_phase1.index
-            )
+        ## TODO fix the contribution calculations
+        ## DEPRECATED for now
+        # if compute_contributions:
+        #     Q_contributions, T2_contributions = self._compute_contributions(df_PCA_transformed)
+        #     self.df_T2_contributions = pd.DataFrame(
+        #         T2_contributions, columns=df_phase1.columns, index=df_phase1.index
+        #     )
+        #     self.df_Q_contributions = pd.DataFrame(
+        #         Q_contributions, columns=df_phase1.columns, index=df_phase1.index
+        #     )
 
         self.is_fitted = True
 
@@ -759,22 +763,18 @@ class PCAModelChart(HotellingT2Chart):
             "n_components_to_retain": self.n_components_to_retain,
             "alpha": self.alpha,
             "PC_variance_explained_min": PC_variance_explained_min,
-            "compute_contributions": compute_contributions,
+            # "compute_contributions": compute_contributions,
         }
 
         return self
 
-    def predict(self, df_phase2: pd.DataFrame, predict_proba: bool = True):
+    def predict(self, df_phase2: pd.DataFrame):
         """
         Uses the estimated phase 1 statistics from the fit() method to calculate phase 2 statistics.
         A dataframe will be returned with T^2, Q, UCL's for both, indicators whether they are outside the UCL
-        and cumulated proportion of points outside. In case predict_proba argument is True, the T^2 and Q values
-        will not be the actual values, but rather probabilities from plugging them into their estimated
-        phase 1 empirical cumulative distribution function. This will make the output interpretable as probabilities
-        of being anomalous.
+        and cumulated proportion of points outside.
 
         :param df_phase2: the phase 2 data with the same column names as provided in the phase 1 data
-        :param predict_proba: whether T2 and Q in the returned dataframe should be converted to probabilities
         :return: a dataframe with phase 2 statistics
         """
         df_transformed = apply_standardize_and_PCA(df_phase2, self.scaler, self.PCA)
@@ -807,79 +807,59 @@ class PCAModelChart(HotellingT2Chart):
         df_phase2_stats = pd.concat([df_phase2_stats, df_Q_stats], axis=1)
         df_phase2_stats.index = df_phase2.index
 
-        if predict_proba:
-            # estimate ECDF for phase 1 T2 and Q which is shifted to the right by their median values. Plug phase 2
-            # T2 and Q into this and get probabilities out. Replace T2 and Q in output dataframe with these probs.
-            # We add the median so obs by the center of phase 1 distributions don't get high anomaly probabilities.
-            # TODO: as a reminder, I might want to not replace T2 and Q vals, but simply add new col with probs...
-            medians = self.df_phase1_stats[["T2", "Q"]].median()
-            ecdf_T2 = ECDF(self.df_phase1_stats["T2"] + medians.loc["T2"])
-            ecdf_Q = ECDF(self.df_phase1_stats["Q"] + medians.loc["Q"])
-            df_phase2_stats["T2"] = ecdf_T2(df_phase2_stats["T2"])
-            df_phase2_stats["Q"] = ecdf_Q(df_phase2_stats["Q"])
-
-            # plot estimated CDF
-            # self.df_phase1_stats["T2"].plot(kind="kde")
-            # plt.plot(ecdf_T2.x, ecdf_T2.y, label="T2")
-            # plt.plot(ecdf_Q.x, ecdf_Q.y, label="Q")
-            # plt.axvline(medians.loc["T2"], label="T2 phase 1 mean", color="black")
-            # plt.axvline(medians.loc["Q"], label="Q phase 1 mean", color="red")
-            # plt.legend()
-            # plt.show()
-
-            # plot phase 2 T or Q as time series data
-            # (df_phase2_stats[["ecdf_Q"]].astype(int)
-            #  .rolling(window=200).mean()
-            #  .plot(subplots=False))
-            # plt.axvline(x=5, color="red", linestyle="--")
-            # plt.show()
         return df_phase2_stats
 
-    def get_contributions(self, df: pd.DataFrame):
-        """
-        Computes contributions for an arbitrary dataframe (phase 1 or 2). Requires fit() to be run first,
-        as principal components and scalers need to be estimated.
+    # def get_contributions(self, df: pd.DataFrame):
+    #     """
+    #     DISABLED for now due to mismatching matrix dimensions in _compute_contributions()
+    #
+    #     Computes contributions for an arbitrary dataframe (phase 1 or 2). Requires fit() to be run first,
+    #     as principal components and scalers need to be estimated.
+    #
+    #     :param df: the data observations for the given phase
+    #     :return: dataframe of c ontributions
+    #     """
+    #     assert self.is_fitted, "Model not fitted. Run fit() method first."
+    #     df_transformed = apply_standardize_and_PCA(df, self.scaler, self.PCA)
+    #     df_transformed = pd.DataFrame(df_transformed[:, : self.n_components_to_retain])
+    #     Q_contributions, T2_contributions = self._compute_contributions(df_transformed)
+    #     T2_col_names = ["T2_contribution_" + col for col in df.columns]
+    #     Q_col_names = ["Q_contribution_" + col for col in df.columns]
+    #     df_T2_contributions = pd.DataFrame(
+    #         T2_contributions, columns=T2_col_names, index=df.index
+    #     )
+    #     df_Q_contributions = pd.DataFrame(
+    #         Q_contributions, columns=Q_col_names, index=df.index
+    #     )
+    #     return pd.concat([df_T2_contributions, df_Q_contributions], axis=1)
 
-        :param df: the data observations for the given phase
-        :return: dataframe of contributions
-        """
-        assert self.is_fitted, "Model not fitted. Run fit() method first."
-        df_transformed = apply_standardize_and_PCA(df, self.scaler, self.PCA)
-        df_transformed = pd.DataFrame(df_transformed[:, : self.n_components_to_retain])
-        Q_contributions, T2_contributions = self._compute_contributions(df_transformed)
-        T2_col_names = ["T2_contribution_" + col for col in df.columns]
-        Q_col_names = ["Q_contribution_" + col for col in df.columns]
-        df_T2_contributions = pd.DataFrame(
-            T2_contributions, columns=T2_col_names, index=df.index
-        )
-        df_Q_contributions = pd.DataFrame(
-            Q_contributions, columns=Q_col_names, index=df.index
-        )
-        return pd.concat([df_T2_contributions, df_Q_contributions], axis=1)
-
-    def _compute_contributions(self, df_phase1):
-        input_dim = df_phase1.shape[1]
-        T2_contributions = np.zeros_like(df_phase1, dtype=float)
-        Q_contributions = np.zeros_like(df_phase1, dtype=float)
-        A_eigenvals = np.diag(
-            self.PCA.explained_variance_[: self.n_components_to_retain]
-        )
-        C_loadings = np.array(self.loadings)
-        X = self.scaler.transform(df_phase1)
-        X_means = np.mean(X, axis=0)
-        T2_matrix_scaling = multiply_matrices(
-            C_loadings, np.linalg.inv(np.sqrt(A_eigenvals)), C_loadings.T
-        )  # p x p
-        Q_matrix_scaling = np.eye(input_dim) - multiply_matrices(
-            C_loadings, C_loadings.T
-        )  # p x p
-        for i in range(X.shape[0]):
-            residual = X[i] - X_means  # 1 x p
-            T2_contributions[i] = multiply_matrices(
-                residual, T2_matrix_scaling
-            )  # 1 x p
-            Q_contributions[i] = multiply_matrices(residual, Q_matrix_scaling)  # 1 x p
-        return Q_contributions, T2_contributions
+    # def _compute_contributions(self, df_phase1):
+    #     input_dim = df_phase1.shape[1]
+    #     T2_contributions = np.zeros_like(df_phase1, dtype=float)
+    #     Q_contributions = np.zeros_like(df_phase1, dtype=float)
+    #     A_eigenvals = np.diag(
+    #         self.PCA.explained_variance_[: self.n_components_to_retain]
+    #     )
+    #     C_loadings = np.array(self.loadings)
+    #     # X = self.scaler.transform(df_phase1)
+    #     X = df_phase1
+    #     X_means = np.mean(X, axis=0)
+    #
+    #     # n0te: there's something wrong in the matrix dimensions in the below calculations.
+    #     # Todo: fix it at a later point - deprecate for now
+    #     T2_matrix_scaling = multiply_matrices(
+    #         C_loadings, np.linalg.inv(np.sqrt(A_eigenvals)), C_loadings.T
+    #     )  # p x p
+    #     Q_matrix_scaling = np.eye(input_dim) - multiply_matrices(
+    #         C_loadings, C_loadings.T
+    #     )  # p x p
+    #     for i in range(X.shape[0]):
+    #         residual = X[i] - X_means  # 1 x p
+    #         T2_contributions[i] = multiply_matrices(
+    #             residual, T2_matrix_scaling
+    #         )  # 1 x p
+    #         Q_contributions[i] = multiply_matrices(residual, Q_matrix_scaling)  # 1 x p
+    #     return Q_contributions, T2_contributions
 
     def _compute_Q_values(self, df_raw: pd.DataFrame):
         # n0te: most of the next bit is from Max's code. Original source?

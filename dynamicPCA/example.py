@@ -1,3 +1,5 @@
+from matplotlib import pyplot as plt
+
 from TEP import *
 from analysis import *
 
@@ -8,3 +10,4 @@ analysis = Analysis(10)
 analysis.fit(TEP)
 
 analysis.show_plots()
+plt.show()
