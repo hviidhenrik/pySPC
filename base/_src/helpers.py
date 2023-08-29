@@ -326,7 +326,7 @@ class ControlChartPlotMixin:
         )
         df = pd.concat([df_phase1_results, df_phase2_results])
         df["phase"] = 1
-        df["phase"].iloc[len(df_phase1_results) :] = 2
+        df["phase"].iloc[len(df_phase1_results):] = 2
         if not index_is_datetime_format:
             df = df.reset_index()
         N_samples = df.shape[0]
