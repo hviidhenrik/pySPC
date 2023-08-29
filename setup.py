@@ -26,6 +26,8 @@ setup(
         "scikit_learn",
         "scipy",
         "statsmodels",
-        "torch"
+        "torch",
+        "openpyxl",
+        "seaborn"
     ],
 )
