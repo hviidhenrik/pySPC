@@ -1,5 +1,5 @@
-Statistical Process Control with Python
-========================
+# Statistical Process Control with Python
+
 This Python package implements various methods from the field of Statistical Process Control (SPC).
 
 The idea of the package is to make easily available a lot of functionality from the SPC
